@@ -1472,6 +1472,16 @@ document.getElementById('settings-kofi').addEventListener('click', () => {
   window.pywebview.api.open_kofi();
 });
 
+document.getElementById('win-min').addEventListener('click', () => {
+  window.pywebview.api.window_minimize();
+});
+document.getElementById('win-max').addEventListener('click', () => {
+  window.pywebview.api.window_maximize_toggle();
+});
+document.getElementById('win-close').addEventListener('click', () => {
+  window.pywebview.api.window_close();
+});
+
 versionCheckButton.addEventListener('click', () => {
   checkForUpdate(true);
 });

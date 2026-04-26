@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -473,11 +473,41 @@ PROMPT_SLOTS = [
 
 
 class JsApi:
+    def __init__(self):
+        # Tracks our intent for the max/restore button. Frameless windows have
+        # no native title-bar double-click, so this stays in sync as long as
+        # the user only toggles via our button. Windows Snap (Win+arrow) can
+        # still desync it; if so, the next click will be a no-op and the one
+        # after that flips state.
+        self._maximized = False
+
     def get_prompt_config(self):
         return {"slots": PROMPT_SLOTS, "gender_options": GENDER_OPTIONS}
 
     def open_kofi(self):
         webbrowser.open(KOFI_URL)
+        return True
+
+    def window_minimize(self):
+        if webview.windows:
+            webview.windows[0].minimize()
+        return True
+
+    def window_maximize_toggle(self):
+        if not webview.windows:
+            return False
+        win = webview.windows[0]
+        if self._maximized:
+            win.restore()
+            self._maximized = False
+        else:
+            win.maximize()
+            self._maximized = True
+        return True
+
+    def window_close(self):
+        if webview.windows:
+            webview.windows[0].destroy()
         return True
 
     def get_version(self):
@@ -922,6 +952,8 @@ def main():
         width=1280,
         height=800,
         background_color="#0f0f0f",
+        frameless=True,
+        easy_drag=False,
         js_api=JsApi(),
     )
     webview.start()
