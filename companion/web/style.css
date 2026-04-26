@@ -223,6 +223,23 @@ body {
   color: #ffffff;
 }
 
+/* Frameless resize handles. Thin transparent strips on each edge with bigger
+   pads in the corners; they sit above everything (z-index) but are tiny so
+   they only catch clicks at the very edge of the window. Each one's mousedown
+   handler hands the drag to Windows' native resize loop via WM_NCLBUTTONDOWN. */
+.resize-edges > div {
+  position: fixed;
+  z-index: 9999;
+}
+.resize-n  { top: 0;     left: 6px;  right: 6px; height: 4px; cursor: ns-resize; }
+.resize-s  { bottom: 0;  left: 6px;  right: 6px; height: 4px; cursor: ns-resize; }
+.resize-w  { left: 0;    top: 6px;   bottom: 6px; width: 4px; cursor: ew-resize; }
+.resize-e  { right: 0;   top: 6px;   bottom: 6px; width: 4px; cursor: ew-resize; }
+.resize-nw { top: 0;     left: 0;    width: 6px; height: 6px; cursor: nwse-resize; }
+.resize-ne { top: 0;     right: 0;   width: 6px; height: 6px; cursor: nesw-resize; }
+.resize-sw { bottom: 0;  left: 0;    width: 6px; height: 6px; cursor: nesw-resize; }
+.resize-se { bottom: 0;  right: 0;   width: 6px; height: 6px; cursor: nwse-resize; }
+
 .bot-name-label {
   color: #e0e0e0;
   font-size: 13px;

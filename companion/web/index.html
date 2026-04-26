@@ -208,6 +208,19 @@
       </div>
     </main>
   </div>
+  <!-- Frameless resize handles. Each div sends WM_NCLBUTTONDOWN with the
+       matching hit-test code (HTLEFT=10..HTBOTTOMRIGHT=17), so Windows runs
+       the native resize loop. -->
+  <div class="resize-edges" aria-hidden="true">
+    <div class="resize-n" data-dir="12"></div>
+    <div class="resize-e" data-dir="11"></div>
+    <div class="resize-s" data-dir="15"></div>
+    <div class="resize-w" data-dir="10"></div>
+    <div class="resize-nw" data-dir="13"></div>
+    <div class="resize-ne" data-dir="14"></div>
+    <div class="resize-sw" data-dir="16"></div>
+    <div class="resize-se" data-dir="17"></div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 ; Output: installer-output\JanitorAnalytics-Setup.exe
 
 #define MyAppName "Janitor Analytics"
-#define MyAppVersion "1.0.5"
+#define MyAppVersion "1.0.6"
 #define MyAppPublisher "Scandalari"
 #define MyAppExeName "JanitorAnalytics.exe"
 

@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -519,11 +519,11 @@ PROMPT_SLOTS = [
 
 class JsApi:
     def __init__(self):
-        self._maximized = False
-        # (x, y, w, h) saved before maximizing so we can restore.
+        # (x, y, w, h) saved before maximize so window_maximize_toggle can
+        # restore. The max state itself is read by comparing current window
+        # rect to the work area, so it stays correct even when Windows
+        # un-maximizes the window via Aero Snap drag.
         self._restore_rect = None
-        # (x, y) of the window when the current drag started.
-        self._drag_anchor = None
 
     def get_prompt_config(self):
         return {"slots": PROMPT_SLOTS, "gender_options": GENDER_OPTIONS}
@@ -541,24 +541,26 @@ class JsApi:
         if not webview.windows:
             return False
         win = webview.windows[0]
-        if self._maximized:
+        work = _get_window_work_area()
+
+        try:
+            cur_rect = (win.x, win.y, win.width, win.height)
+        except (AttributeError, TypeError):
+            cur_rect = None
+
+        is_max = (work is not None and cur_rect is not None and cur_rect == work)
+
+        if is_max:
             if self._restore_rect is not None:
                 rx, ry, rw, rh = self._restore_rect
                 win.move(rx, ry)
                 win.resize(rw, rh)
-            self._maximized = False
+            else:
+                win.resize(1280, 800)
             return True
 
-        # Save current rect for restore.
-        try:
-            self._restore_rect = (win.x, win.y, win.width, win.height)
-        except (AttributeError, TypeError):
-            self._restore_rect = None
-
-        # Maximize manually to the monitor's work area (excludes the taskbar).
-        # pywebview's win.maximize() goes borderless-fullscreen on frameless
-        # windows because there's no native chrome to anchor the OS state.
-        work = _get_window_work_area()
+        if cur_rect is not None:
+            self._restore_rect = cur_rect
         if work is not None:
             wx, wy, ww, wh = work
             win.move(wx, wy)
@@ -566,7 +568,6 @@ class JsApi:
         else:
             # Last-ditch fallback — covers the taskbar but at least responds.
             win.maximize()
-        self._maximized = True
         return True
 
     def window_close(self):
@@ -574,28 +575,34 @@ class JsApi:
             webview.windows[0].destroy()
         return True
 
-    def window_drag_start(self):
-        """Record the window's current position so subsequent drag_move calls
-        can offset from it. Called once per mousedown on the topbar."""
+    def window_native_drag(self):
+        """Hand the current mouse drag to Windows by sending a synthetic
+        WM_NCLBUTTONDOWN with HTCAPTION. The OS treats it as a real title-bar
+        grab, which gives us Aero Snap (drag to top = max, drag to side =
+        half-screen) and proper drag-while-maximized restore for free."""
+        return self._send_nc_lbutton_down(2)  # HTCAPTION
+
+    def window_native_resize(self, ht_code):
+        """Hand a resize drag to Windows. ht_code is one of HTLEFT..HTBOTTOMRIGHT
+        (10..17). Called from a mousedown on one of our edge/corner divs."""
+        if not isinstance(ht_code, int) or ht_code < 10 or ht_code > 17:
+            return False
+        return self._send_nc_lbutton_down(ht_code)
+
+    def _send_nc_lbutton_down(self, ht_code):
         if not webview.windows:
             return False
-        win = webview.windows[0]
-        # If maximized, restore on drag so the user can pull it free.
-        if self._maximized and self._restore_rect is not None:
-            _, _, rw, rh = self._restore_rect
-            win.resize(rw, rh)
-            self._maximized = False
         try:
-            self._drag_anchor = (win.x, win.y)
-        except (AttributeError, TypeError):
-            self._drag_anchor = None
-        return True
-
-    def window_drag_move(self, dx, dy):
-        if not webview.windows or self._drag_anchor is None:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.FindWindowW(None, WINDOW_TITLE)
+            if not hwnd:
+                return False
+            WM_NCLBUTTONDOWN = 0x00A1
+            user32.ReleaseCapture()
+            user32.SendMessageW(hwnd, WM_NCLBUTTONDOWN, ht_code, 0)
+        except Exception:
             return False
-        ax, ay = self._drag_anchor
-        webview.windows[0].move(int(ax + dx), int(ay + dy))
         return True
 
     def get_version(self):

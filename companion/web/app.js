@@ -1482,26 +1482,25 @@ document.getElementById('win-close').addEventListener('click', () => {
   window.pywebview.api.window_close();
 });
 
-// Custom topbar drag — WebView2 doesn't reliably honor -webkit-app-region: drag,
-// so we drive the move via mousedown on the topbar and stream deltas to Python.
-let dragStart = null;
-
-document.querySelector('.topbar').addEventListener('mousedown', async (e) => {
+// Topbar drag — hand the mousedown back to Windows so it runs the native
+// title-bar drag loop. Gives us Aero Snap and drag-while-maximized for free.
+document.querySelector('.topbar').addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
-  // Don't drag when starting on an interactive element.
   if (e.target.closest('button, input, a, .creator-menu')) return;
-  dragStart = { x: e.screenX, y: e.screenY };
   e.preventDefault();
-  await window.pywebview.api.window_drag_start();
+  window.pywebview.api.window_native_drag();
 });
 
-document.addEventListener('mousemove', (e) => {
-  if (!dragStart) return;
-  window.pywebview.api.window_drag_move(e.screenX - dragStart.x, e.screenY - dragStart.y);
-});
-
-document.addEventListener('mouseup', () => {
-  dragStart = null;
+// Resize edges — same trick with the appropriate hit-test code per edge/corner.
+document.querySelectorAll('.resize-edges > div').forEach((el) => {
+  el.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const dir = parseInt(el.dataset.dir, 10);
+    if (Number.isFinite(dir)) {
+      window.pywebview.api.window_native_resize(dir);
+    }
+  });
 });
 
 versionCheckButton.addEventListener('click', () => {
