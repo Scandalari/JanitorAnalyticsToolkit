@@ -106,11 +106,55 @@ const THEMES = {
 
 const PIE_OTHERS_COLOR = '#666666';
 
+// Hex chosen by the Custom Theme egg. Loaded from settings on init; updated
+// live by the color input. Defaults to a soft violet so the swatch isn't
+// black when the egg is first unlocked.
+let customThemeHex = '#9c8df5';
+
 function hsl(h, s, l) {
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
+function hexToHsl(hex) {
+  const m = (hex || '').replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return { h: 180, s: 80 };
+  const r = parseInt(m[1], 16) / 255;
+  const g = parseInt(m[2], 16) / 255;
+  const b = parseInt(m[3], 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h *= 60;
+  }
+  return { h: Math.round(h), s: Math.round(s * 100) };
+}
+
 function themeColors(themeName) {
+  // Custom theme: derive hue+sat from the user's chosen hex but keep the
+  // built-in lightness curve so the rendered accent always sits in the
+  // "readable on dark" zone regardless of what the user picks.
+  if (themeName === 'custom') {
+    const { h, s } = hexToHsl(customThemeHex);
+    const t = THEME_DEFAULTS;
+    return {
+      accent: hsl(h, s, t.accent),
+      accentHover: hsl(h, s, t.accentHover),
+      accentPressed: hsl(h, s, t.accentPressed),
+      accentLink: hsl(h, s, t.accentLink),
+      pieColors: t.pie.map((l) => hsl(h, s, l)).concat([PIE_OTHERS_COLOR]),
+      textOnAccent: t.textOnAccent,
+    };
+  }
   const t = { ...THEME_DEFAULTS, ...(THEMES[themeName] || THEMES.teal) };
   return {
     accent: hsl(t.hue, t.sat, t.accent),
@@ -123,7 +167,7 @@ function themeColors(themeName) {
 }
 
 function applyTheme(themeName) {
-  if (!THEMES[themeName]) themeName = 'teal';
+  if (themeName !== 'custom' && !THEMES[themeName]) themeName = 'teal';
   currentTheme = themeName;
   const c = themeColors(themeName);
   const root = document.documentElement;
@@ -626,6 +670,12 @@ async function populateSettingsForm() {
     btn.classList.toggle('active', btn.dataset.themeOption === (settings.theme || 'teal'));
   });
 
+  customThemeHex = settings.custom_theme_hex || '#9c8df5';
+  const colorInput = document.getElementById('theme-custom-hex');
+  if (colorInput) colorInput.value = customThemeHex;
+  const customSwatch = document.getElementById('theme-swatch-custom');
+  if (customSwatch) customSwatch.style.background = customThemeHex;
+
   await renderEggsSection(settings);
 }
 
@@ -958,6 +1008,7 @@ function applyEggs() {
   document.body.classList.toggle('egg-coffee-shop-au', activeEggs.has('coffee_shop_au'));
   document.body.classList.toggle('egg-pure-sunshine', activeEggs.has('pure_sunshine'));
   document.body.classList.toggle('egg-bookworm', activeEggs.has('bookworm'));
+  document.body.classList.toggle('egg-custom-theme', activeEggs.has('custom_theme'));
 
   // Prompt-gen title precedence: "Why even gen?" wins over Mommy wins over default.
   const promptTitle = document.querySelector('.prompt-gen-title');
@@ -1021,6 +1072,42 @@ function applyEggs() {
 function allPromptSlotsLocked() {
   if (!promptConfig) return false;
   return promptConfig.slots.every((s) => promptLocked[s.key]);
+}
+
+// === Custom Theme meta-egg ===
+// Unlocks if the user clicks between three different built-in themes within
+// five seconds. Sliding window of timestamps; 'custom' itself is excluded so
+// you can't loop yourself into re-unlocking after the fact.
+const CUSTOM_THEME_WINDOW_MS = 5000;
+const CUSTOM_THEME_UNIQUE_THRESHOLD = 3;
+let themeClickHistory = [];
+
+function recordThemeClickForUnlock(theme) {
+  if (theme === 'custom') return;
+  const now = Date.now();
+  themeClickHistory.push({ time: now, theme });
+  themeClickHistory = themeClickHistory.filter(
+    (e) => now - e.time < CUSTOM_THEME_WINDOW_MS,
+  );
+  const unique = new Set(themeClickHistory.map((e) => e.theme));
+  if (unique.size >= CUSTOM_THEME_UNIQUE_THRESHOLD) {
+    checkCustomThemeConditions();
+  }
+}
+
+async function checkCustomThemeConditions() {
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('custom_theme');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('custom_theme', true);
+    activeEggs.add('custom_theme');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Custom Theme unlock failed:', e);
+  }
 }
 
 // === Manic Pixie Dream Girl meta-egg ===
@@ -1308,36 +1395,38 @@ function renderGraph(timeseries) {
     });
   }
 
+  // Tick labels are stripped — the unified hover tooltip already shows every
+  // trace's value at the cursor's x position, so the numbers on each axis
+  // were redundant. With no labels, the right-side axes can also stack at
+  // the same edge without the position-offset hack.
+  const axisCommon = {
+    showticklabels: false,
+    ticks: '',
+    linecolor: '#2a2a2a',
+    zerolinecolor: 'transparent',
+  };
+
   const layout = {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { color: '#a0a0a0', family: 'Segoe UI, sans-serif', size: 12 },
-    margin: { l: 70, r: hasFollowers ? 110 : 70, t: 20, b: 50 },
+    margin: { l: 30, r: 30, t: 20, b: 30 },
     xaxis: {
+      ...axisCommon,
       type: 'date',
-      // Shrink the x-axis domain when the third axis is present so the
-      // retention axis (yaxis2) and followers axis (yaxis3) don't overlap.
-      domain: hasFollowers ? [0, 0.93] : [0, 1],
       gridcolor: '#2a2a2a',
-      linecolor: '#2a2a2a',
-      tickcolor: '#2a2a2a',
       zerolinecolor: '#2a2a2a',
     },
     yaxis: {
+      ...axisCommon,
       gridcolor: '#2a2a2a',
-      linecolor: '#2a2a2a',
-      tickcolor: '#2a2a2a',
       zerolinecolor: '#2a2a2a',
-      tickfont: { color: c.accent },
     },
     yaxis2: {
+      ...axisCommon,
       overlaying: 'y',
       side: 'right',
       gridcolor: 'transparent',
-      linecolor: '#2a2a2a',
-      tickcolor: '#2a2a2a',
-      zerolinecolor: 'transparent',
-      tickfont: { color: c.accentLink },
     },
     legend: {
       orientation: 'h',
@@ -1355,15 +1444,10 @@ function renderGraph(timeseries) {
 
   if (hasFollowers) {
     layout.yaxis3 = {
+      ...axisCommon,
       overlaying: 'y',
       side: 'right',
-      anchor: 'free',
-      position: 1,
-      showgrid: false,
-      linecolor: '#2a2a2a',
-      tickcolor: '#2a2a2a',
-      zerolinecolor: 'transparent',
-      tickfont: { color: FOLLOWER_LINE_COLOR },
+      gridcolor: 'transparent',
     };
   }
 
@@ -1697,8 +1781,20 @@ document.querySelectorAll('[data-theme-option]').forEach(btn => {
     const theme = btn.dataset.themeOption;
     applyTheme(theme);
     saveSettings({ theme });
+    recordThemeClickForUnlock(theme);
   });
 });
+
+const customColorInput = document.getElementById('theme-custom-hex');
+const customSwatchEl = document.getElementById('theme-swatch-custom');
+if (customColorInput) {
+  customColorInput.addEventListener('input', (e) => {
+    customThemeHex = e.target.value;
+    if (customSwatchEl) customSwatchEl.style.background = customThemeHex;
+    saveSettings({ custom_theme_hex: customThemeHex });
+    if (currentTheme === 'custom') applyTheme('custom');
+  });
+}
 
 document.getElementById('prompt-roll').addEventListener('click', rollUnlocked);
 document.getElementById('prompt-copy-list').addEventListener('click', copyPromptList);
@@ -1727,18 +1823,25 @@ document.getElementById('win-close').addEventListener('click', () => {
   window.pywebview.api.window_close();
 });
 
-// Topbar drag — manual mousemove tracking. We tried handing off to Windows
-// via WM_NCLBUTTONDOWN/HTCAPTION (would have given us Aero Snap for free),
-// but the bridge call runs on a worker thread that can't release WebView2's
-// mouse capture, so the OS drag loop never picks up the mouse messages.
-let dragStart = null;
+// Topbar drag — manual mousemove tracking. WM_NCLBUTTONDOWN/HTCAPTION would
+// give us Aero Snap for free, but the bridge call runs on a worker thread
+// that can't release WebView2's mouse capture, so the OS drag loop never
+// picks up the mouse messages.
+//
+// State machine to keep clicks from un-maximizing the window:
+//   pending  -> mousedown happened, waiting for movement past threshold
+//   starting -> threshold crossed, calling window_drag_start (async)
+//   active   -> drag start completed, window follows cursor
+// A click without movement stays in 'pending' until mouseup, so no
+// window_drag_start ever fires and the window doesn't un-maximize.
+const DRAG_THRESHOLD_PX = 5;
+let dragInfo = null;
 
-document.querySelector('.topbar').addEventListener('mousedown', async (e) => {
+document.querySelector('.topbar').addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   if (e.target.closest('button, input, a, .creator-menu')) return;
   e.preventDefault();
-  dragStart = { x: e.screenX, y: e.screenY };
-  await window.pywebview.api.window_drag_start();
+  dragInfo = { x: e.screenX, y: e.screenY, state: 'pending' };
 });
 
 // Resize edges — same manual approach, parameterized by hit-test direction.
@@ -1755,13 +1858,29 @@ document.querySelectorAll('.resize-edges > div').forEach((el) => {
   });
 });
 
-document.addEventListener('mousemove', (e) => {
-  if (dragStart) {
-    window.pywebview.api.window_drag_move(
-      e.screenX - dragStart.x,
-      e.screenY - dragStart.y,
-    );
-  } else if (resizeStart) {
+document.addEventListener('mousemove', async (e) => {
+  if (dragInfo) {
+    const dx = e.screenX - dragInfo.x;
+    const dy = e.screenY - dragInfo.y;
+    if (dragInfo.state === 'pending') {
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+      // Rebase anchor to current cursor so the window doesn't jump by the
+      // threshold amount on the first frame of the drag.
+      dragInfo.x = e.screenX;
+      dragInfo.y = e.screenY;
+      dragInfo.state = 'starting';
+      await window.pywebview.api.window_drag_start();
+      // mouseup may have fired during the await.
+      if (dragInfo) dragInfo.state = 'active';
+      return;
+    }
+    if (dragInfo.state === 'active') {
+      window.pywebview.api.window_drag_move(dx, dy);
+    }
+    // 'starting' state: bridge call still in flight; skip.
+    return;
+  }
+  if (resizeStart) {
     window.pywebview.api.window_resize_step(
       resizeStart.dir,
       e.screenX - resizeStart.x,
@@ -1771,7 +1890,7 @@ document.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('mouseup', () => {
-  dragStart = null;
+  dragInfo = null;
   resizeStart = null;
 });
 
@@ -1790,6 +1909,7 @@ whenReady(async () => {
   try {
     const settings = await window.pywebview.api.get_settings();
     activeEggs = new Set(settings.enabled_eggs || []);
+    customThemeHex = settings.custom_theme_hex || '#9c8df5';
     applyTheme(settings.theme || 'teal');
     applyEggs();
     if (settings.default_creator) {

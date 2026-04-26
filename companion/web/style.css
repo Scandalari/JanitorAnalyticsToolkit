@@ -1145,6 +1145,33 @@ body.egg-owl::after {
   background: hsl(275, 45%, 72%);
 }
 
+/* Custom theme — hidden until the egg unlocks (rapid theme-switch combo).
+   The swatch's background is set inline in JS from the user's chosen hex. */
+.theme-option-custom,
+.theme-custom-hex {
+  display: none;
+}
+
+body.egg-custom-theme .theme-option-custom {
+  display: inline-flex;
+}
+
+body.egg-custom-theme .theme-custom-hex {
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-block;
+  height: 32px;
+  padding: 2px;
+  vertical-align: middle;
+  width: 36px;
+}
+
+body.egg-custom-theme .theme-custom-hex:hover {
+  border-color: var(--accent);
+}
+
 .stats-row.hidden,
 .graph-row.hidden {
   display: none;
