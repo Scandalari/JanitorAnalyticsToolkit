@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.8"
+__version__ = "1.0.9"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -167,6 +167,26 @@ EASTER_EGGS = [
         "id": "dark_future",
         "name": "10-23-2077",
         "description": "CRT scanlines, phosphor glow, and a sickly bright-green accent. Magic word required.",
+    },
+    {
+        "id": "mpdg",
+        "name": "Manic Pixie Dream Girl",
+        "description": "Pastel sparkles drift up from below. Auto-unlocks on Female + Pink/Blue/Multi hair + Cheerful + Bohemian.",
+    },
+    {
+        "id": "coffee_shop_au",
+        "name": "Coffee Shop AU",
+        "description": "Warm cocoa palette and serif type, like the app is sitting in a cafe. Auto-unlocks on Setting=Coffee Shop + Scenario=Coffee shop + Tone=Friends to Lovers/Wholesome.",
+    },
+    {
+        "id": "pure_sunshine",
+        "name": "Pure Sunshine",
+        "description": "Soft pastel-pink accent and a warm glow on stat boxes. Auto-unlocks on Cheerful + Cottagecore + Wholesome.",
+    },
+    {
+        "id": "bookworm",
+        "name": "Bookworm",
+        "description": "Sepia tones, amber accent, and a serif body font. Auto-unlocks on Setting=Library + Personality=Nerd/Geek + Style=Nerdy.",
     },
 ]
 
@@ -907,11 +927,13 @@ class JsApi:
             totals = s.get("totals", {})
             msgs = totals.get("messages", 0)
             chats = totals.get("chats", 0)
+            creator_obj = s.get("creator", {}) or {}
             result.append({
                 "pulledAt": s.get("pulledAt"),
                 "messages": msgs,
                 "chats": chats,
                 "retention": (msgs / chats) if chats else 0,
+                "follower_count": creator_obj.get("followerCount", 0),
             })
         return result
 

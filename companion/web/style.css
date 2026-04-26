@@ -777,6 +777,97 @@ body.egg-dark-future::after {
   z-index: 9998;
 }
 
+/* Manic Pixie Dream Girl — pastel sparkles drifting up from below.
+   Mirrors the Nikki heart pattern but smaller, brighter, and with a slight
+   horizontal drift so the field doesn't look like rising bars. */
+.mpdg-sparkle {
+  border-radius: 50%;
+  bottom: -20px;
+  pointer-events: none;
+  position: fixed;
+  z-index: 9999;
+  animation: mpdg-drift linear forwards;
+}
+
+@keyframes mpdg-drift {
+  0%   { bottom: -20px; opacity: 0; transform: translateX(0); }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.5; }
+  100% { bottom: 110vh; opacity: 0; transform: translateX(var(--mpdg-drift, 0)); }
+}
+
+/* Coffee Shop AU — warm cocoa palette with a serif body font. */
+body.egg-coffee-shop-au {
+  --accent: hsl(28, 60%, 55%);
+  --accent-hover: hsl(28, 60%, 65%);
+  --accent-pressed: hsl(28, 60%, 45%);
+  --accent-link: hsl(28, 60%, 70%);
+  --text-on-accent: #1a0e08;
+  background: #1f1612;
+  color: #f0e0c8;
+  font-family: Georgia, "Cambria", "Times New Roman", serif;
+}
+
+body.egg-coffee-shop-au .topbar,
+body.egg-coffee-shop-au .content {
+  background: #1f1612;
+  border-color: #3a2c20;
+}
+
+body.egg-coffee-shop-au .stat-box,
+body.egg-coffee-shop-au .bot-card,
+body.egg-coffee-shop-au .graph-section,
+body.egg-coffee-shop-au .settings-section,
+body.egg-coffee-shop-au .prompt-gen-rows,
+body.egg-coffee-shop-au .prompt-adlib,
+body.egg-coffee-shop-au .creator-menu {
+  background: #2a1f18;
+  border-color: #3a2c20;
+}
+
+/* Pure Sunshine — soft pastel-pink accent + warm glow on cards. */
+body.egg-pure-sunshine {
+  --accent: hsl(15, 75%, 72%);
+  --accent-hover: hsl(15, 75%, 80%);
+  --accent-pressed: hsl(15, 75%, 62%);
+  --accent-link: hsl(15, 75%, 82%);
+  --text-on-accent: #2a1410;
+}
+
+body.egg-pure-sunshine .stat-box,
+body.egg-pure-sunshine .bot-card {
+  box-shadow: 0 0 18px rgba(255, 200, 170, 0.12);
+}
+
+/* Bookworm — sepia palette, amber accent, serif type. */
+body.egg-bookworm {
+  --accent: hsl(35, 60%, 55%);
+  --accent-hover: hsl(35, 60%, 65%);
+  --accent-pressed: hsl(35, 60%, 45%);
+  --accent-link: hsl(35, 60%, 72%);
+  --text-on-accent: #1a1610;
+  background: #1a1610;
+  color: #d4c4a8;
+  font-family: Georgia, "Cambria", "Garamond", "Times New Roman", serif;
+}
+
+body.egg-bookworm .topbar,
+body.egg-bookworm .content {
+  background: #1a1610;
+  border-color: #3a2e1c;
+}
+
+body.egg-bookworm .stat-box,
+body.egg-bookworm .bot-card,
+body.egg-bookworm .graph-section,
+body.egg-bookworm .settings-section,
+body.egg-bookworm .prompt-gen-rows,
+body.egg-bookworm .prompt-adlib,
+body.egg-bookworm .creator-menu {
+  background: #221c14;
+  border-color: #3a2e1c;
+}
+
 /* Lumbridge — OSRS-style yellow on black with the RuneScape font */
 @font-face {
   font-family: 'RuneScape';

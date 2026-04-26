@@ -864,6 +864,32 @@ function clearHearts() {
   document.querySelectorAll('.nikki-heart').forEach((h) => h.remove());
 }
 
+// Manic Pixie Dream Girl — pastel sparkles drifting up from below.
+const MPDG_COLORS = ['#ffb6e3', '#b6e3ff', '#e3b6ff', '#fff0b6', '#b6ffe3'];
+let mpdgInterval = null;
+
+function spawnSparkle() {
+  const sparkle = document.createElement('div');
+  sparkle.className = 'mpdg-sparkle';
+  const color = MPDG_COLORS[Math.floor(Math.random() * MPDG_COLORS.length)];
+  const size = 4 + Math.random() * 6;
+  const drift = (Math.random() - 0.5) * 240;
+  const duration = 8 + Math.random() * 4;
+  sparkle.style.left = (Math.random() * 100) + 'vw';
+  sparkle.style.width = size + 'px';
+  sparkle.style.height = size + 'px';
+  sparkle.style.background = color;
+  sparkle.style.boxShadow = `0 0 8px ${color}`;
+  sparkle.style.setProperty('--mpdg-drift', drift + 'px');
+  sparkle.style.animationDuration = duration + 's';
+  document.body.appendChild(sparkle);
+  setTimeout(() => sparkle.remove(), duration * 1000 + 200);
+}
+
+function clearSparkles() {
+  document.querySelectorAll('.mpdg-sparkle').forEach((s) => s.remove());
+}
+
 // Craos — random flicker on UI chunks. Skips whatever's under the mouse.
 const CRAOS_TARGETS = [
   '.bot-card',
@@ -928,6 +954,10 @@ function applyEggs() {
   document.body.classList.toggle('egg-goth', activeEggs.has('goth'));
   document.body.classList.toggle('egg-not-just-a-phase', activeEggs.has('not_just_a_phase'));
   document.body.classList.toggle('egg-dark-future', activeEggs.has('dark_future'));
+  document.body.classList.toggle('egg-mpdg', activeEggs.has('mpdg'));
+  document.body.classList.toggle('egg-coffee-shop-au', activeEggs.has('coffee_shop_au'));
+  document.body.classList.toggle('egg-pure-sunshine', activeEggs.has('pure_sunshine'));
+  document.body.classList.toggle('egg-bookworm', activeEggs.has('bookworm'));
 
   // Prompt-gen title precedence: "Why even gen?" wins over Mommy wins over default.
   const promptTitle = document.querySelector('.prompt-gen-title');
@@ -965,6 +995,18 @@ function applyEggs() {
     clearHearts();
   }
 
+  // MPDG — periodic sparkle spawner
+  if (activeEggs.has('mpdg')) {
+    if (!mpdgInterval) {
+      spawnSparkle();
+      mpdgInterval = setInterval(spawnSparkle, 600);
+    }
+  } else if (mpdgInterval) {
+    clearInterval(mpdgInterval);
+    mpdgInterval = null;
+    clearSparkles();
+  }
+
   // Craos — random flicker scheduler
   if (activeEggs.has('craos')) {
     if (!craosTimeout) scheduleCraos();
@@ -979,6 +1021,92 @@ function applyEggs() {
 function allPromptSlotsLocked() {
   if (!promptConfig) return false;
   return promptConfig.slots.every((s) => promptLocked[s.key]);
+}
+
+// === Manic Pixie Dream Girl meta-egg ===
+// Unlocks on Female + (Pink|Blue|Multi) hair + Cheerful + Bohemian.
+async function checkMpdgConditions() {
+  if (!promptConfig) return;
+  if (promptGender !== 'Female') return;
+  if (!['Pink', 'Blue', 'Multi'].includes(promptValues.hair_color)) return;
+  if (promptValues.personality !== 'Cheerful') return;
+  if (promptValues.style !== 'Bohemian') return;
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('mpdg');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('mpdg', true);
+    activeEggs.add('mpdg');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('MPDG unlock failed:', e);
+  }
+}
+
+// === Coffee Shop AU meta-egg ===
+// Unlocks on Setting=Coffee Shop + Scenario=Coffee shop + Tone in
+// (Friends to Lovers, Wholesome).
+async function checkCoffeeShopAuConditions() {
+  if (!promptConfig) return;
+  if (promptValues.setting !== 'Coffee Shop') return;
+  if (promptValues.scenario !== 'Coffee shop') return;
+  if (!['Friends to Lovers', 'Wholesome'].includes(promptValues.tone)) return;
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('coffee_shop_au');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('coffee_shop_au', true);
+    activeEggs.add('coffee_shop_au');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Coffee Shop AU unlock failed:', e);
+  }
+}
+
+// === Pure Sunshine meta-egg ===
+// Unlocks on Personality=Cheerful + Style=Cottagecore + Tone=Wholesome.
+async function checkPureSunshineConditions() {
+  if (!promptConfig) return;
+  if (promptValues.personality !== 'Cheerful') return;
+  if (promptValues.style !== 'Cottagecore') return;
+  if (promptValues.tone !== 'Wholesome') return;
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('pure_sunshine');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('pure_sunshine', true);
+    activeEggs.add('pure_sunshine');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Pure Sunshine unlock failed:', e);
+  }
+}
+
+// === Bookworm meta-egg ===
+// Unlocks on Setting=Library + Personality=Nerd/Geek + Style=Nerdy.
+async function checkBookwormConditions() {
+  if (!promptConfig) return;
+  if (promptValues.setting !== 'Library') return;
+  if (promptValues.personality !== 'Nerd/Geek') return;
+  if (promptValues.style !== 'Nerdy') return;
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('bookworm');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('bookworm', true);
+    activeEggs.add('bookworm');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Bookworm unlock failed:', e);
+  }
 }
 
 // === Goth meta-egg ===
@@ -1130,11 +1258,22 @@ function formatShortDate(iso) {
 
 // === Plotly ===
 
+// Theme-independent neutral for the followers line so it stays distinct from
+// whatever accent the user has on. Light enough to read against #0f0f0f.
+const FOLLOWER_LINE_COLOR = '#b8b8b8';
+
 function renderGraph(timeseries) {
   const c = themeColors(currentTheme);
   const x = timeseries.map(p => p.pulledAt);
   const messages = timeseries.map(p => p.messages);
   const retention = timeseries.map(p => p.retention);
+
+  // Followers come through on the creator-level timeseries only; bot/tag
+  // drill-downs don't include them, so the trace + axis appear conditionally.
+  const hasFollowers = timeseries.some(
+    (p) => p.follower_count !== undefined && p.follower_count !== null,
+  );
+  const followers = hasFollowers ? timeseries.map((p) => p.follower_count) : null;
 
   const traces = [
     {
@@ -1157,13 +1296,28 @@ function renderGraph(timeseries) {
     },
   ];
 
+  if (hasFollowers) {
+    traces.push({
+      x, y: followers,
+      type: 'scatter',
+      mode: 'lines+markers',
+      name: 'Followers',
+      line: { color: FOLLOWER_LINE_COLOR, width: 2, dash: 'dot' },
+      marker: { color: FOLLOWER_LINE_COLOR, size: 5 },
+      yaxis: 'y3',
+    });
+  }
+
   const layout = {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { color: '#a0a0a0', family: 'Segoe UI, sans-serif', size: 12 },
-    margin: { l: 70, r: 70, t: 20, b: 50 },
+    margin: { l: 70, r: hasFollowers ? 110 : 70, t: 20, b: 50 },
     xaxis: {
       type: 'date',
+      // Shrink the x-axis domain when the third axis is present so the
+      // retention axis (yaxis2) and followers axis (yaxis3) don't overlap.
+      domain: hasFollowers ? [0, 0.93] : [0, 1],
       gridcolor: '#2a2a2a',
       linecolor: '#2a2a2a',
       tickcolor: '#2a2a2a',
@@ -1198,6 +1352,20 @@ function renderGraph(timeseries) {
       font: { color: '#e0e0e0', family: 'Segoe UI, sans-serif' },
     },
   };
+
+  if (hasFollowers) {
+    layout.yaxis3 = {
+      overlaying: 'y',
+      side: 'right',
+      anchor: 'free',
+      position: 1,
+      showgrid: false,
+      linecolor: '#2a2a2a',
+      tickcolor: '#2a2a2a',
+      zerolinecolor: 'transparent',
+      tickfont: { color: FOLLOWER_LINE_COLOR },
+    };
+  }
 
   Plotly.newPlot('graph', traces, layout, {
     displaylogo: false,
@@ -1281,9 +1449,19 @@ function rollUnlocked() {
   }
   renderPromptUI();
   updateAdlib();
+  checkAllPromptEggs();
+}
+
+// All prompt-gen meta-egg checks fan out from one place to keep the trigger
+// sites tidy. Add new prompt-combo eggs here, not at every call site.
+function checkAllPromptEggs() {
   checkAbsoluteMommyConditions();
   checkGothConditions();
   checkNotJustAPhaseConditions();
+  checkMpdgConditions();
+  checkCoffeeShopAuConditions();
+  checkPureSunshineConditions();
+  checkBookwormConditions();
 }
 
 function toggleLock(key) {
@@ -1329,7 +1507,7 @@ function renderPromptUI() {
     (v) => {
       promptGender = v;
       updateAdlib();
-      checkAbsoluteMommyConditions();
+      checkAllPromptEggs();
     },
   );
 
@@ -1366,9 +1544,7 @@ function renderPromptUI() {
       }
       applyEggs();
       updateAdlib();
-      checkAbsoluteMommyConditions();
-      checkGothConditions();
-      checkNotJustAPhaseConditions();
+      checkAllPromptEggs();
     });
 
     row.appendChild(label);
@@ -1384,18 +1560,21 @@ async function updateAdlib() {
     display.textContent = '';
     return;
   }
-  // "Why even gen?" — when every slot is locked, the user has hand-picked
-  // everything, so the generator winks at itself.
-  if (allPromptSlotsLocked()) {
-    display.textContent = '{{Char}} was hand selected to be a...';
-    return;
-  }
   const values = {};
   for (const slot of promptConfig.slots) {
     values[slot.key] = promptValues[slot.key];
   }
   try {
-    const adlib = await window.pywebview.api.generate_adlib(values, promptGender);
+    let adlib = await window.pywebview.api.generate_adlib(values, promptGender);
+    // "Why even gen?" — when every slot is locked, swap the opening clause
+    // so the paragraph reads as if the user hand-picked the character.
+    // Handles both "is a ..." and "is an ..." (vowel-led ethnicity).
+    if (allPromptSlotsLocked()) {
+      adlib = adlib.replace(
+        /^\{\{Char\}\} is (an? )/,
+        '{{Char}} was hand selected to be $1',
+      );
+    }
     display.textContent = adlib;
   } catch (e) {
     console.error('Adlib generation failed:', e);
