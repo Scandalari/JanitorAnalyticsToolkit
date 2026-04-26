@@ -595,9 +595,9 @@ body {
   width: 6px;
 }
 
-/* Quiet egg: when the selected creator's name has no capitals, the whole app
-   adopts that aesthetic. text-transform cascades through all descendants. */
-body.lowercase-tone {
+/* Lowercase Tone egg — auto-unlocks on first view of a no-capitals creator.
+   text-transform cascades through all descendants. */
+body.egg-lowercase {
   text-transform: lowercase;
 }
 

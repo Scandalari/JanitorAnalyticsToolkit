@@ -179,9 +179,9 @@ function hideMenu() {
 async function selectCreator(name) {
   currentCreator = name;
   button.textContent = `${name} Analytics`;
-  document.body.classList.toggle('lowercase-tone', name === name.toLowerCase());
   hideMenu();
   await loadCreatorData(name);
+  checkLowercaseConditions();
 }
 
 async function loadCreatorData(name) {
@@ -924,6 +924,7 @@ function applyEggs() {
   document.body.classList.toggle('egg-lorem', activeEggs.has('lorem_ipsum'));
   document.body.classList.toggle('egg-owl', activeEggs.has('owl'));
   document.body.classList.toggle('egg-trek', activeEggs.has('trek'));
+  document.body.classList.toggle('egg-lowercase', activeEggs.has('lowercase'));
 
   // Absolute Mommy — rename the prompt-gen title
   const promptTitle = document.querySelector('.prompt-gen-title');
@@ -989,6 +990,28 @@ async function checkAbsoluteMommyConditions() {
     await renderEggsSection(settings);
   } catch (e) {
     console.error('Mommy unlock failed:', e);
+  }
+}
+
+// === Lowercase Tone meta-egg ===
+// Unlocks the first time the user views a creator whose name has no capital
+// letters. Auto-enables on first unlock so the effect happens immediately;
+// after that it's a regular Settings toggle.
+async function checkLowercaseConditions() {
+  if (!currentCreator) return;
+  if (currentCreator !== currentCreator.toLowerCase()) return;
+
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('lowercase');
+    if (!result) return; // already unlocked or unknown
+    await window.pywebview.api.set_egg_enabled('lowercase', true);
+    activeEggs.add('lowercase');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Lowercase unlock failed:', e);
   }
 }
 

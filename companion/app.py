@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -101,6 +101,11 @@ EASTER_EGGS = [
         "id": "craos",
         "name": "Craos",
         "description": "UI elements briefly blip out at random. Whatever you're hovering over is safe.",
+    },
+    {
+        "id": "lowercase",
+        "name": "Lowercase Tone",
+        "description": "Forces the whole UI into lowercase. Auto-unlocks the first time you view a creator whose name has no capital letters.",
     },
 ]
 
