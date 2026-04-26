@@ -1482,25 +1482,52 @@ document.getElementById('win-close').addEventListener('click', () => {
   window.pywebview.api.window_close();
 });
 
-// Topbar drag — hand the mousedown back to Windows so it runs the native
-// title-bar drag loop. Gives us Aero Snap and drag-while-maximized for free.
-document.querySelector('.topbar').addEventListener('mousedown', (e) => {
+// Topbar drag — manual mousemove tracking. We tried handing off to Windows
+// via WM_NCLBUTTONDOWN/HTCAPTION (would have given us Aero Snap for free),
+// but the bridge call runs on a worker thread that can't release WebView2's
+// mouse capture, so the OS drag loop never picks up the mouse messages.
+let dragStart = null;
+
+document.querySelector('.topbar').addEventListener('mousedown', async (e) => {
   if (e.button !== 0) return;
   if (e.target.closest('button, input, a, .creator-menu')) return;
   e.preventDefault();
-  window.pywebview.api.window_native_drag();
+  dragStart = { x: e.screenX, y: e.screenY };
+  await window.pywebview.api.window_drag_start();
 });
 
-// Resize edges — same trick with the appropriate hit-test code per edge/corner.
+// Resize edges — same manual approach, parameterized by hit-test direction.
+let resizeStart = null;
+
 document.querySelectorAll('.resize-edges > div').forEach((el) => {
-  el.addEventListener('mousedown', (e) => {
+  el.addEventListener('mousedown', async (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
     const dir = parseInt(el.dataset.dir, 10);
-    if (Number.isFinite(dir)) {
-      window.pywebview.api.window_native_resize(dir);
-    }
+    if (!Number.isFinite(dir)) return;
+    resizeStart = { x: e.screenX, y: e.screenY, dir };
+    await window.pywebview.api.window_resize_start();
   });
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (dragStart) {
+    window.pywebview.api.window_drag_move(
+      e.screenX - dragStart.x,
+      e.screenY - dragStart.y,
+    );
+  } else if (resizeStart) {
+    window.pywebview.api.window_resize_step(
+      resizeStart.dir,
+      e.screenX - resizeStart.x,
+      e.screenY - resizeStart.y,
+    );
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  dragStart = null;
+  resizeStart = null;
 });
 
 versionCheckButton.addEventListener('click', () => {

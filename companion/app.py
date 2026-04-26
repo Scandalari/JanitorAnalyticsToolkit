@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -520,10 +520,13 @@ PROMPT_SLOTS = [
 class JsApi:
     def __init__(self):
         # (x, y, w, h) saved before maximize so window_maximize_toggle can
-        # restore. The max state itself is read by comparing current window
-        # rect to the work area, so it stays correct even when Windows
-        # un-maximizes the window via Aero Snap drag.
+        # restore. Max state itself is read by comparing current window rect
+        # to the work area, so a manual restore (e.g. drag) stays in sync.
         self._restore_rect = None
+        # (x, y) of the window when the current drag started.
+        self._drag_anchor = None
+        # (x, y, w, h) of the window when the current resize started.
+        self._resize_anchor = None
 
     def get_prompt_config(self):
         return {"slots": PROMPT_SLOTS, "gender_options": GENDER_OPTIONS}
@@ -575,34 +578,83 @@ class JsApi:
             webview.windows[0].destroy()
         return True
 
-    def window_native_drag(self):
-        """Hand the current mouse drag to Windows by sending a synthetic
-        WM_NCLBUTTONDOWN with HTCAPTION. The OS treats it as a real title-bar
-        grab, which gives us Aero Snap (drag to top = max, drag to side =
-        half-screen) and proper drag-while-maximized restore for free."""
-        return self._send_nc_lbutton_down(2)  # HTCAPTION
-
-    def window_native_resize(self, ht_code):
-        """Hand a resize drag to Windows. ht_code is one of HTLEFT..HTBOTTOMRIGHT
-        (10..17). Called from a mousedown on one of our edge/corner divs."""
-        if not isinstance(ht_code, int) or ht_code < 10 or ht_code > 17:
-            return False
-        return self._send_nc_lbutton_down(ht_code)
-
-    def _send_nc_lbutton_down(self, ht_code):
+    def window_drag_start(self):
+        """Record the window's current position so subsequent drag_move calls
+        can offset from it. Called once per mousedown on the topbar."""
         if not webview.windows:
             return False
+        win = webview.windows[0]
+        # If maximized, restore on first drag step so the user can pull free.
+        work = _get_window_work_area()
         try:
-            import ctypes
-            user32 = ctypes.windll.user32
-            hwnd = user32.FindWindowW(None, WINDOW_TITLE)
-            if not hwnd:
-                return False
-            WM_NCLBUTTONDOWN = 0x00A1
-            user32.ReleaseCapture()
-            user32.SendMessageW(hwnd, WM_NCLBUTTONDOWN, ht_code, 0)
-        except Exception:
+            cur = (win.x, win.y, win.width, win.height)
+        except (AttributeError, TypeError):
+            cur = None
+        if work is not None and cur == work and self._restore_rect is not None:
+            _, _, rw, rh = self._restore_rect
+            win.resize(rw, rh)
+        try:
+            self._drag_anchor = (win.x, win.y)
+        except (AttributeError, TypeError):
+            self._drag_anchor = None
+        return True
+
+    def window_drag_move(self, dx, dy):
+        if not webview.windows or self._drag_anchor is None:
             return False
+        ax, ay = self._drag_anchor
+        webview.windows[0].move(int(ax + dx), int(ay + dy))
+        return True
+
+    def window_resize_start(self):
+        if not webview.windows:
+            return False
+        win = webview.windows[0]
+        try:
+            self._resize_anchor = (win.x, win.y, win.width, win.height)
+        except (AttributeError, TypeError):
+            self._resize_anchor = None
+        return True
+
+    def window_resize_step(self, direction, dx, dy):
+        """direction is one of HTLEFT..HTBOTTOMRIGHT (10..17). dx/dy are the
+        cumulative mouse delta from the resize-start position."""
+        if not webview.windows or self._resize_anchor is None:
+            return False
+        if not isinstance(direction, int) or direction < 10 or direction > 17:
+            return False
+
+        ax, ay, aw, ah = self._resize_anchor
+        nx, ny, nw, nh = ax, ay, aw, ah
+
+        HTLEFT, HTRIGHT, HTTOP = 10, 11, 12
+        HTTOPLEFT, HTTOPRIGHT = 13, 14
+        HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT = 15, 16, 17
+
+        if direction in (HTLEFT, HTTOPLEFT, HTBOTTOMLEFT):
+            nx = ax + dx
+            nw = aw - dx
+        if direction in (HTRIGHT, HTTOPRIGHT, HTBOTTOMRIGHT):
+            nw = aw + dx
+        if direction in (HTTOP, HTTOPLEFT, HTTOPRIGHT):
+            ny = ay + dy
+            nh = ah - dy
+        if direction in (HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT):
+            nh = ah + dy
+
+        MIN_W, MIN_H = 600, 400
+        if nw < MIN_W:
+            if direction in (HTLEFT, HTTOPLEFT, HTBOTTOMLEFT):
+                nx = ax + (aw - MIN_W)
+            nw = MIN_W
+        if nh < MIN_H:
+            if direction in (HTTOP, HTTOPLEFT, HTTOPRIGHT):
+                ny = ay + (ah - MIN_H)
+            nh = MIN_H
+
+        win = webview.windows[0]
+        win.move(int(nx), int(ny))
+        win.resize(int(nw), int(nh))
         return True
 
     def get_version(self):
