@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -55,6 +55,51 @@ EASTER_EGG_UNLOCKS = {
     "ncc-1701-d": "trek",
     "craos": "craos",
 }
+
+WINDOW_TITLE = "Janitor Analytics"
+
+
+def _get_window_work_area():
+    """Returns (x, y, w, h) of the work area of the monitor containing our
+    window, or the primary monitor's work area as fallback. Excludes the
+    Windows taskbar so a "maximize" doesn't cover it. Returns None if all
+    win32 calls fail (we then fall back to pywebview's native maximize)."""
+    try:
+        import ctypes
+
+        class RECT(ctypes.Structure):
+            _fields_ = [
+                ("left", ctypes.c_long), ("top", ctypes.c_long),
+                ("right", ctypes.c_long), ("bottom", ctypes.c_long),
+            ]
+
+        class MONITORINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", ctypes.c_ulong),
+                ("rcMonitor", RECT),
+                ("rcWork", RECT),
+                ("dwFlags", ctypes.c_ulong),
+            ]
+
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW(None, WINDOW_TITLE)
+        if hwnd:
+            MONITOR_DEFAULTTONEAREST = 2
+            monitor = user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+            info = MONITORINFO()
+            info.cbSize = ctypes.sizeof(MONITORINFO)
+            if user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                w = info.rcWork
+                return (w.left, w.top, w.right - w.left, w.bottom - w.top)
+
+        # Fallback: SPI_GETWORKAREA on the primary monitor.
+        SPI_GETWORKAREA = 0x0030
+        rect = RECT()
+        if user32.SystemParametersInfoW(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0):
+            return (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+    except Exception:
+        pass
+    return None
 
 EASTER_EGGS = [
     {
@@ -474,12 +519,11 @@ PROMPT_SLOTS = [
 
 class JsApi:
     def __init__(self):
-        # Tracks our intent for the max/restore button. Frameless windows have
-        # no native title-bar double-click, so this stays in sync as long as
-        # the user only toggles via our button. Windows Snap (Win+arrow) can
-        # still desync it; if so, the next click will be a no-op and the one
-        # after that flips state.
         self._maximized = False
+        # (x, y, w, h) saved before maximizing so we can restore.
+        self._restore_rect = None
+        # (x, y) of the window when the current drag started.
+        self._drag_anchor = None
 
     def get_prompt_config(self):
         return {"slots": PROMPT_SLOTS, "gender_options": GENDER_OPTIONS}
@@ -498,16 +542,60 @@ class JsApi:
             return False
         win = webview.windows[0]
         if self._maximized:
-            win.restore()
+            if self._restore_rect is not None:
+                rx, ry, rw, rh = self._restore_rect
+                win.move(rx, ry)
+                win.resize(rw, rh)
             self._maximized = False
+            return True
+
+        # Save current rect for restore.
+        try:
+            self._restore_rect = (win.x, win.y, win.width, win.height)
+        except (AttributeError, TypeError):
+            self._restore_rect = None
+
+        # Maximize manually to the monitor's work area (excludes the taskbar).
+        # pywebview's win.maximize() goes borderless-fullscreen on frameless
+        # windows because there's no native chrome to anchor the OS state.
+        work = _get_window_work_area()
+        if work is not None:
+            wx, wy, ww, wh = work
+            win.move(wx, wy)
+            win.resize(ww, wh)
         else:
+            # Last-ditch fallback — covers the taskbar but at least responds.
             win.maximize()
-            self._maximized = True
+        self._maximized = True
         return True
 
     def window_close(self):
         if webview.windows:
             webview.windows[0].destroy()
+        return True
+
+    def window_drag_start(self):
+        """Record the window's current position so subsequent drag_move calls
+        can offset from it. Called once per mousedown on the topbar."""
+        if not webview.windows:
+            return False
+        win = webview.windows[0]
+        # If maximized, restore on drag so the user can pull it free.
+        if self._maximized and self._restore_rect is not None:
+            _, _, rw, rh = self._restore_rect
+            win.resize(rw, rh)
+            self._maximized = False
+        try:
+            self._drag_anchor = (win.x, win.y)
+        except (AttributeError, TypeError):
+            self._drag_anchor = None
+        return True
+
+    def window_drag_move(self, dx, dy):
+        if not webview.windows or self._drag_anchor is None:
+            return False
+        ax, ay = self._drag_anchor
+        webview.windows[0].move(int(ax + dx), int(ay + dy))
         return True
 
     def get_version(self):

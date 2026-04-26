@@ -29,26 +29,12 @@ body {
 
 .topbar {
   align-items: center;
-  -webkit-app-region: drag;
   background: #1a1a1a;
   border-bottom: 1px solid #2a2a2a;
   display: flex;
   gap: 32px;
   padding: 0 0 0 24px;
-}
-
-/* All interactive children opt out of the drag region so clicks/typing work. */
-.creator-picker,
-.creator-button,
-.creator-menu,
-.creator-menu *,
-.tabs,
-.tab,
-.bot-context,
-.back-link,
-.window-controls,
-.window-control {
-  -webkit-app-region: no-drag;
+  user-select: none;
 }
 
 .creator-picker {
