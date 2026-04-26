@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Janitor Analytics</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="lib/plotly.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="creator-picker">
+        <button id="creator-button" class="creator-button">Select Creator</button>
+        <div id="creator-menu" class="creator-menu hidden"></div>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="bots">Bots</button>
+        <button class="tab" data-tab="tags">Tags</button>
+        <button class="tab" data-tab="history">History</button>
+        <button class="tab" data-tab="prompts">Prompt Generator</button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </nav>
+      <div id="bot-context" class="bot-context hidden">
+        <span id="bot-name-label" class="bot-name-label"></span>
+        <button id="back-link" class="back-link">Back to overview</button>
+      </div>
+    </header>
+    <main class="content">
+      <div id="empty-view" class="empty">
+        <p class="empty-title">No creator selected.</p>
+        <p class="empty-sub">Pick one in the top-left to load their data.</p>
+      </div>
+      <div id="data-view" class="data-view hidden">
+        <section class="stats-row">
+          <div class="stat-box">
+            <div class="stat-value" id="stat-1-value">--</div>
+            <div class="stat-label" id="stat-1-label">Bots</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-2-value">--</div>
+            <div class="stat-label" id="stat-2-label">Messages</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-3-value">--</div>
+            <div class="stat-label" id="stat-3-label">Chats</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-4-value">--</div>
+            <div class="stat-label" id="stat-4-label">Avg Retention</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="stat-5-value">--</div>
+            <div class="stat-label" id="stat-5-label">Followers</div>
+          </div>
+        </section>
+        <section class="graph-row">
+          <div class="graph-section graph-section-main">
+            <div id="graph"></div>
+          </div>
+          <div class="graph-section graph-section-pie hidden" id="pie-section">
+            <div id="pie-chart"></div>
+          </div>
+        </section>
+
+        <div class="tab-body" id="bots-body">
+          <section class="sort-bar">
+            <span class="sort-bar-label">Sort</span>
+            <button class="sort-button active" data-sort-bots="recency">Recency</button>
+            <button class="sort-button" data-sort-bots="messages">Messages</button>
+            <button class="sort-button" data-sort-bots="retention">Retention</button>
+          </section>
+          <section class="bot-grid" id="bot-grid"></section>
+        </div>
+
+        <div class="tab-body hidden" id="tags-body">
+          <section class="sort-bar">
+            <span class="sort-bar-label">Sort</span>
+            <button class="sort-button active" data-sort-tags="popularity">Popularity</button>
+            <button class="sort-button" data-sort-tags="messages">Messages</button>
+            <button class="sort-button" data-sort-tags="retention">Retention</button>
+            <button class="sort-button" data-sort-tags="alpha">A-Z</button>
+          </section>
+          <section class="bot-grid" id="tag-grid"></section>
+        </div>
+
+        <div class="tab-body hidden" id="history-body">
+          <div id="weeks-view">
+            <section class="sort-bar">
+              <span class="sort-bar-label">Sort</span>
+              <button class="sort-button active" data-sort-weeks="recency">Recency</button>
+              <button class="sort-button" data-sort-weeks="messages">Messages Gained</button>
+            </section>
+            <section class="bot-grid" id="week-grid"></section>
+            <div id="weeks-empty" class="placeholder hidden">
+              <p class="placeholder-title">Not enough data yet.</p>
+              <p class="placeholder-sub">Weekly deltas need at least two weeks of pulls. Come back next Sunday.</p>
+            </div>
+          </div>
+          <div id="week-deltas-view" class="hidden">
+            <section class="sort-bar">
+              <span class="sort-bar-label">Sort</span>
+              <button class="sort-button active" data-sort-deltas="messages">Messages Gained</button>
+              <button class="sort-button" data-sort-deltas="chats">Chats Gained</button>
+              <button class="sort-button" data-sort-deltas="alpha">A-Z</button>
+            </section>
+            <section class="bot-grid" id="delta-grid"></section>
+          </div>
+        </div>
+
+        <div class="tab-body hidden" id="prompts-body">
+          <div class="prompt-gen">
+            <div class="prompt-gen-header">
+              <h2 class="prompt-gen-title">Character Concept</h2>
+              <div class="prompt-gen-actions">
+                <button id="prompt-roll" class="prompt-action-button primary">Roll</button>
+                <button id="prompt-copy-list" class="prompt-action-button">Copy List</button>
+                <button id="prompt-copy-adlib" class="prompt-action-button">Copy Paragraph</button>
+              </div>
+            </div>
+            <div class="prompt-gen-rows" id="prompt-rows"></div>
+            <div class="prompt-adlib" id="adlib-display"></div>
+            <div id="prompt-copy-status" class="prompt-copy-status"></div>
+          </div>
+        </div>
+
+        <div class="tab-body hidden" id="settings-body">
+          <div class="settings-section">
+            <input id="settings-unlock-input" class="settings-input" type="text" placeholder="..." autocomplete="off" spellcheck="false" />
+            <div id="settings-unlock-status" class="settings-unlock-status"></div>
+          </div>
+          <div class="settings-section">
+            <h3 class="settings-section-title">Default creator</h3>
+            <p class="settings-hint">Auto-loads this creator's data when the app starts. Leave blank to start on the picker.</p>
+            <select id="settings-default-creator" class="settings-select">
+              <option value="">None</option>
+            </select>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Color theme</h3>
+            <p class="settings-hint">Shifts the accent color only. Backgrounds and text stay flat dark grey.</p>
+            <div class="theme-options">
+              <button class="theme-option" data-theme-option="teal">
+                <span class="theme-swatch theme-swatch-teal"></span>
+                <span>Teal</span>
+              </button>
+              <button class="theme-option" data-theme-option="pink">
+                <span class="theme-swatch theme-swatch-pink"></span>
+                <span>Pink</span>
+              </button>
+              <button class="theme-option" data-theme-option="orange">
+                <span class="theme-swatch theme-swatch-orange"></span>
+                <span>Orange</span>
+              </button>
+              <button class="theme-option" data-theme-option="lime">
+                <span class="theme-swatch theme-swatch-lime"></span>
+                <span>Lime</span>
+              </button>
+              <button class="theme-option" data-theme-option="yellow">
+                <span class="theme-swatch theme-swatch-yellow"></span>
+                <span>Yellow</span>
+              </button>
+              <button class="theme-option" data-theme-option="lavender">
+                <span class="theme-swatch theme-swatch-lavender"></span>
+                <span>Lavender</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section hidden" id="settings-eggs-section">
+            <h3 class="settings-section-title">Easter Eggs</h3>
+            <p class="settings-hint">Toggle the ones you've found.</p>
+            <div id="settings-eggs-list"></div>
+          </div>
+
+          <div class="settings-section settings-section-kofi">
+            <button id="settings-kofi" class="kofi-button">Like this app?</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
