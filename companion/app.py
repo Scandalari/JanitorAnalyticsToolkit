@@ -1,5 +1,7 @@
-import json
+﻿import json
 import os
+import urllib.error
+import urllib.request
 import webbrowser
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -9,6 +11,24 @@ import webview
 # Ko-Fi link for the "Like this app?" button in Settings.
 # REPLACE_WITH_YOUR_KOFI_HANDLE — paste your actual ko-fi URL here, idiot.
 KOFI_URL = "https://ko-fi.com/scandalari"
+
+# Source of truth for app version. installer.iss MyAppVersion must match
+# before each release build.
+__version__ = "1.0.1"
+GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
+
+
+def _parse_version(s):
+    if not s:
+        return None
+    s = s.strip()
+    if s[:1].lower() == "v":
+        s = s[1:]
+    try:
+        return tuple(int(p) for p in s.split("."))
+    except ValueError:
+        return None
+
 
 WEB_DIR = Path(__file__).parent / "web"
 DATA_DIR = Path.home() / "Downloads" / "Janitor-Analytics"
@@ -450,6 +470,48 @@ class JsApi:
 
     def open_kofi(self):
         webbrowser.open(KOFI_URL)
+        return True
+
+    def get_version(self):
+        return __version__
+
+    def check_for_update(self):
+        payload = {
+            "current": __version__,
+            "latest": None,
+            "has_update": False,
+            "html_url": None,
+            "error": None,
+        }
+        try:
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+                headers={
+                    "User-Agent": f"JanitorAnalytics/{__version__}",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+            payload["error"] = "Couldn't reach GitHub."
+            return payload
+
+        payload["latest"] = (data.get("tag_name") or "").strip() or None
+        payload["html_url"] = data.get("html_url")
+
+        current_v = _parse_version(__version__)
+        latest_v = _parse_version(payload["latest"])
+        if current_v is not None and latest_v is not None:
+            payload["has_update"] = latest_v > current_v
+        return payload
+
+    def open_release_page(self, url):
+        # Only allow github.com release URLs through — JsApi is reachable from
+        # any JS context and webbrowser.open will happily launch anything.
+        if not isinstance(url, str) or not url.startswith("https://github.com/"):
+            return False
+        webbrowser.open(url)
         return True
 
     def get_egg_definitions(self):

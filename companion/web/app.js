@@ -18,6 +18,10 @@ const unlockInput = document.getElementById('settings-unlock-input');
 const unlockStatus = document.getElementById('settings-unlock-status');
 const eggsSection = document.getElementById('settings-eggs-section');
 const eggsList = document.getElementById('settings-eggs-list');
+const versionCurrent = document.getElementById('version-current');
+const versionCheckButton = document.getElementById('version-check');
+const versionStatus = document.getElementById('version-status');
+const settingsTabButton = document.querySelector('.tab[data-tab="settings"]');
 
 let currentCreator = null;
 let currentTab = 'bots';
@@ -50,6 +54,7 @@ let promptCopyStatusTimeout = null;
 let allEggs = null;
 let activeEggs = new Set();
 let unlockStatusTimeout = null;
+let updateCheckInflight = false;
 
 const STAT_LABELS = {
   creator: ['Bots', 'Messages', 'Chats', 'Avg Retention', 'Followers'],
@@ -174,6 +179,7 @@ function hideMenu() {
 async function selectCreator(name) {
   currentCreator = name;
   button.textContent = `${name} Analytics`;
+  document.body.classList.toggle('lowercase-tone', name === name.toLowerCase());
   hideMenu();
   await loadCreatorData(name);
 }
@@ -604,6 +610,8 @@ function renderDeltaCards(bots) {
 async function populateSettingsForm() {
   const settings = await window.pywebview.api.get_settings();
   const creators = await window.pywebview.api.list_creators();
+  const version = await window.pywebview.api.get_version();
+  versionCurrent.textContent = `Current: v${version}`;
 
   defaultCreatorSelect.innerHTML = '<option value="">None</option>';
   for (const name of creators) {
@@ -696,6 +704,46 @@ function showUnlockStatus(msg) {
   unlockStatusTimeout = setTimeout(() => {
     unlockStatus.style.opacity = '0';
   }, 2500);
+}
+
+async function checkForUpdate(showLoading) {
+  if (updateCheckInflight) return;
+  updateCheckInflight = true;
+  if (showLoading) {
+    versionStatus.textContent = 'Checking...';
+    versionStatus.className = 'version-status';
+  }
+  try {
+    const result = await window.pywebview.api.check_for_update();
+    versionCurrent.textContent = `Current: v${result.current}`;
+    if (result.error) {
+      versionStatus.textContent = result.error;
+      versionStatus.className = 'version-status error';
+      return;
+    }
+    if (result.has_update && result.html_url) {
+      versionStatus.innerHTML = '';
+      const text = document.createElement('span');
+      text.textContent = `New version available: ${result.latest}. `;
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'version-link';
+      link.textContent = 'Open release page';
+      link.addEventListener('click', () => {
+        window.pywebview.api.open_release_page(result.html_url);
+      });
+      versionStatus.appendChild(text);
+      versionStatus.appendChild(link);
+      versionStatus.className = 'version-status has-update';
+      settingsTabButton.dataset.updateAvailable = 'true';
+    } else {
+      versionStatus.textContent = "You're up to date.";
+      versionStatus.className = 'version-status ok';
+      delete settingsTabButton.dataset.updateAvailable;
+    }
+  } finally {
+    updateCheckInflight = false;
+  }
 }
 
 // === Egg-specific implementations ===
@@ -1360,6 +1408,10 @@ document.getElementById('settings-kofi').addEventListener('click', () => {
   window.pywebview.api.open_kofi();
 });
 
+versionCheckButton.addEventListener('click', () => {
+  checkForUpdate(true);
+});
+
 // === Init ===
 
 function whenReady(callback) {
@@ -1376,6 +1428,7 @@ whenReady(async () => {
     if (settings.default_creator) {
       await selectCreator(settings.default_creator);
     }
+    checkForUpdate(false).catch(() => {});
   } catch (e) {
     console.error('Init failed:', e);
   }

@@ -499,6 +499,85 @@ body {
   color: var(--accent-link);
 }
 
+.version-row {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+}
+
+.version-line {
+  color: #a0a0a0;
+  flex: 1;
+  font-size: 13px;
+}
+
+.settings-button {
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  color: #a0a0a0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 14px;
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.settings-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-link);
+}
+
+.version-status {
+  color: #666666;
+  font-size: 12px;
+  margin-top: 10px;
+  min-height: 16px;
+}
+
+.version-status.error {
+  color: #c95757;
+}
+
+.version-status.has-update {
+  color: var(--accent-link);
+}
+
+.version-link {
+  background: transparent;
+  border: none;
+  color: var(--accent-link);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.version-link:hover {
+  color: var(--accent);
+}
+
+.tab[data-update-available="true"] {
+  position: relative;
+}
+
+.tab[data-update-available="true"]::after {
+  background: var(--accent);
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 6px;
+}
+
+/* Quiet egg: when the selected creator's name has no capitals, the whole app
+   adopts that aesthetic. text-transform cascades through all descendants. */
+body.lowercase-tone {
+  text-transform: lowercase;
+}
+
 /* === Easter eggs === */
 
 /* Nikki — floating hearts */
