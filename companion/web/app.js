@@ -925,13 +925,20 @@ function applyEggs() {
   document.body.classList.toggle('egg-owl', activeEggs.has('owl'));
   document.body.classList.toggle('egg-trek', activeEggs.has('trek'));
   document.body.classList.toggle('egg-lowercase', activeEggs.has('lowercase'));
+  document.body.classList.toggle('egg-goth', activeEggs.has('goth'));
+  document.body.classList.toggle('egg-not-just-a-phase', activeEggs.has('not_just_a_phase'));
+  document.body.classList.toggle('egg-dark-future', activeEggs.has('dark_future'));
 
-  // Absolute Mommy — rename the prompt-gen title
+  // Prompt-gen title precedence: "Why even gen?" wins over Mommy wins over default.
   const promptTitle = document.querySelector('.prompt-gen-title');
   if (promptTitle) {
-    promptTitle.textContent = activeEggs.has('absolute_mommy')
-      ? 'Mommy Maker'
-      : 'Character Concept';
+    if (allPromptSlotsLocked()) {
+      promptTitle.textContent = 'Why even gen?';
+    } else if (activeEggs.has('absolute_mommy')) {
+      promptTitle.textContent = 'Mommy Maker';
+    } else {
+      promptTitle.textContent = 'Character Concept';
+    }
   }
 
   // Scandalari — periodic color randomizer
@@ -967,6 +974,51 @@ function applyEggs() {
 
   // Meta-egg: check Owl unlock conditions every time egg state changes
   checkOwlConditions();
+}
+
+function allPromptSlotsLocked() {
+  if (!promptConfig) return false;
+  return promptConfig.slots.every((s) => promptLocked[s.key]);
+}
+
+// === Goth meta-egg ===
+// Unlocks when prompt gen has Personality=Goth AND Style=Goth.
+async function checkGothConditions() {
+  if (!promptConfig) return;
+  if (promptValues.personality !== 'Goth' || promptValues.style !== 'Goth') return;
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('goth');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('goth', true);
+    activeEggs.add('goth');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Goth unlock failed:', e);
+  }
+}
+
+// === Not Just a Phase meta-egg ===
+// Goth conditions PLUS age=MILF (35+) AND tone=Dark Romance.
+async function checkNotJustAPhaseConditions() {
+  if (!promptConfig) return;
+  if (promptValues.personality !== 'Goth' || promptValues.style !== 'Goth') return;
+  if (promptValues.age_category !== 'MILF (35+)') return;
+  if (promptValues.tone !== 'Dark Romance') return;
+  try {
+    const result = await window.pywebview.api.unlock_egg_by_id('not_just_a_phase');
+    if (!result) return;
+    await window.pywebview.api.set_egg_enabled('not_just_a_phase', true);
+    activeEggs.add('not_just_a_phase');
+    showUnlockStatus(`Unlocked: ${result.name}`);
+    applyEggs();
+    const settings = await window.pywebview.api.get_settings();
+    await renderEggsSection(settings);
+  } catch (e) {
+    console.error('Not Just a Phase unlock failed:', e);
+  }
 }
 
 // === Absolute Mommy meta-egg ===
@@ -1230,6 +1282,8 @@ function rollUnlocked() {
   renderPromptUI();
   updateAdlib();
   checkAbsoluteMommyConditions();
+  checkGothConditions();
+  checkNotJustAPhaseConditions();
 }
 
 function toggleLock(key) {
@@ -1239,6 +1293,9 @@ function toggleLock(key) {
     btn.classList.toggle('locked', promptLocked[key]);
     btn.textContent = promptLocked[key] ? 'Locked' : 'Lock';
   }
+  // Lock-state change can flip "Why even gen?" on/off.
+  applyEggs();
+  updateAdlib();
 }
 
 function makePromptSelect(options, currentValue, onChange) {
@@ -1307,8 +1364,11 @@ function renderPromptUI() {
         lock.classList.add('locked');
         lock.textContent = 'Locked';
       }
+      applyEggs();
       updateAdlib();
       checkAbsoluteMommyConditions();
+      checkGothConditions();
+      checkNotJustAPhaseConditions();
     });
 
     row.appendChild(label);
@@ -1322,6 +1382,12 @@ async function updateAdlib() {
   const display = document.getElementById('adlib-display');
   if (!promptConfig) {
     display.textContent = '';
+    return;
+  }
+  // "Why even gen?" — when every slot is locked, the user has hand-picked
+  // everything, so the generator winks at itself.
+  if (allPromptSlotsLocked()) {
+    display.textContent = '{{Char}} was hand selected to be a...';
     return;
   }
   const values = {};

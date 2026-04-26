@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -54,6 +54,7 @@ EASTER_EGG_UNLOCKS = {
     "lorem ipsum": "lorem_ipsum",
     "ncc-1701-d": "trek",
     "craos": "craos",
+    "10-23-2077": "dark_future",
 }
 
 WINDOW_TITLE = "Janitor Analytics"
@@ -151,6 +152,21 @@ EASTER_EGGS = [
         "id": "lowercase",
         "name": "Lowercase Tone",
         "description": "Forces the whole UI into lowercase. Auto-unlocks the first time you view a creator whose name has no capital letters.",
+    },
+    {
+        "id": "goth",
+        "name": "Goth",
+        "description": "Vivid purple accent over near-black backgrounds. Auto-unlocks when the prompt generator lands on Goth for both Personality and Style.",
+    },
+    {
+        "id": "not_just_a_phase",
+        "name": "Not Just a Phase",
+        "description": "Same dark goth palette but with blackletter type. Auto-unlocks on top of Goth when the prompt also lands on MILF (35+) and Dark Romance.",
+    },
+    {
+        "id": "dark_future",
+        "name": "10-23-2077",
+        "description": "CRT scanlines, phosphor glow, and a sickly bright-green accent. Magic word required.",
     },
 ]
 

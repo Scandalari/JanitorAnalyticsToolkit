@@ -689,6 +689,94 @@ body.egg-lowercase {
   100% { transform: translateY(-110vh); opacity: 0; }
 }
 
+/* Goth — vivid purple over near-black. The Not Just a Phase upgrade
+   stacks a blackletter font on top. Both classes share the goth palette
+   so things still look coherent if the user has Goth toggled off but
+   Not Just a Phase toggled on. */
+body.egg-goth,
+body.egg-not-just-a-phase {
+  --accent: hsl(280, 85%, 55%);
+  --accent-hover: hsl(280, 85%, 65%);
+  --accent-pressed: hsl(280, 85%, 45%);
+  --accent-link: hsl(280, 85%, 72%);
+  --text-on-accent: #f5f5f5;
+  background: #050505;
+}
+
+body.egg-goth .topbar,
+body.egg-not-just-a-phase .topbar {
+  background: #0a0a0a;
+  border-bottom-color: #1a0a2a;
+}
+
+body.egg-goth .content,
+body.egg-not-just-a-phase .content {
+  background: #050505;
+}
+
+body.egg-goth .stat-box,
+body.egg-not-just-a-phase .stat-box,
+body.egg-goth .bot-card,
+body.egg-not-just-a-phase .bot-card,
+body.egg-goth .graph-section,
+body.egg-not-just-a-phase .graph-section,
+body.egg-goth .settings-section,
+body.egg-not-just-a-phase .settings-section,
+body.egg-goth .prompt-gen-rows,
+body.egg-not-just-a-phase .prompt-gen-rows,
+body.egg-goth .prompt-adlib,
+body.egg-not-just-a-phase .prompt-adlib,
+body.egg-goth .creator-menu,
+body.egg-not-just-a-phase .creator-menu {
+  background: #0a0a0a;
+  border-color: #1a0a2a;
+}
+
+/* Not Just a Phase — blackletter type on top of the goth palette. Drop a
+   custom .ttf at companion/web/fonts/goth.ttf to override the Windows
+   system fallback (Old English Text MT ships with most Windows installs). */
+@font-face {
+  font-family: 'GothCustom';
+  src: url('fonts/goth.ttf') format('truetype');
+  font-display: swap;
+}
+
+body.egg-not-just-a-phase {
+  font-family: 'GothCustom', 'Old English Text MT', 'UnifrakturMaguntia', serif;
+}
+
+/* 10-23-2077 — green phosphor accent + faint CRT scanlines + soft glow.
+   The scanlines sit at z-index 9998 so they're under the resize handles
+   (9999) but over the app, with pointer-events: none so they don't eat
+   clicks. */
+body.egg-dark-future {
+  --accent: hsl(120, 100%, 45%);
+  --accent-hover: hsl(120, 100%, 55%);
+  --accent-pressed: hsl(120, 100%, 35%);
+  --accent-link: hsl(120, 100%, 65%);
+  --text-on-accent: #001a00;
+  color: #d0ffd0;
+}
+
+body.egg-dark-future *:not(svg):not(svg *) {
+  text-shadow: 0 0 4px rgba(0, 255, 64, 0.35);
+}
+
+body.egg-dark-future::after {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 64, 0.06) 0,
+    rgba(0, 255, 64, 0.06) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 9998;
+}
+
 /* Lumbridge — OSRS-style yellow on black with the RuneScape font */
 @font-face {
   font-family: 'RuneScape';
