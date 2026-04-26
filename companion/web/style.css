@@ -557,6 +557,29 @@ body {
   color: var(--accent);
 }
 
+.version-update-button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text-on-accent);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.version-update-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.version-update-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .tab[data-update-available="true"] {
   position: relative;
 }

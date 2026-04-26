@@ -1,5 +1,8 @@
-﻿import json
+import json
 import os
+import subprocess
+import tempfile
+import threading
 import urllib.error
 import urllib.request
 import webbrowser
@@ -14,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -481,6 +484,7 @@ class JsApi:
             "latest": None,
             "has_update": False,
             "html_url": None,
+            "asset_url": None,
             "error": None,
         }
         try:
@@ -500,6 +504,12 @@ class JsApi:
         payload["latest"] = (data.get("tag_name") or "").strip() or None
         payload["html_url"] = data.get("html_url")
 
+        for asset in data.get("assets", []) or []:
+            name = asset.get("name", "") or ""
+            if name.lower().endswith(".exe"):
+                payload["asset_url"] = asset.get("browser_download_url")
+                break
+
         current_v = _parse_version(__version__)
         latest_v = _parse_version(payload["latest"])
         if current_v is not None and latest_v is not None:
@@ -513,6 +523,52 @@ class JsApi:
             return False
         webbrowser.open(url)
         return True
+
+    def download_and_install_update(self, url):
+        if not isinstance(url, str) or not url.startswith("https://github.com/"):
+            return {"ok": False, "error": "Invalid update URL."}
+
+        try:
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                suffix=".exe", prefix="JanitorAnalytics-Setup-"
+            )
+            os.close(tmp_fd)
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": f"JanitorAnalytics/{__version__}"},
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp, open(tmp_path, "wb") as f:
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+        except (urllib.error.URLError, TimeoutError, OSError):
+            return {"ok": False, "error": "Couldn't download the update."}
+
+        try:
+            # Detached so the installer outlives our process; /SILENT shows a
+            # progress bar but skips wizard prompts, /SUPPRESSMSGBOXES kills
+            # the "are you sure" dialogs. Inno Setup re-launches the app on
+            # finish (default behavior with RestartApplications=yes).
+            creationflags = 0
+            if hasattr(subprocess, "DETACHED_PROCESS"):
+                creationflags |= subprocess.DETACHED_PROCESS
+            if hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP"):
+                creationflags |= subprocess.CREATE_NEW_PROCESS_GROUP
+            subprocess.Popen(
+                [tmp_path, "/SILENT", "/SUPPRESSMSGBOXES"],
+                creationflags=creationflags,
+                close_fds=True,
+            )
+        except OSError:
+            return {"ok": False, "error": "Couldn't launch the installer."}
+
+        # Hard-exit shortly after returning so the installer can overwrite the
+        # running .exe. The brief delay lets pywebview ship our return value
+        # back to JS (so the UI can show "installing..." before vanishing).
+        threading.Timer(0.5, lambda: os._exit(0)).start()
+        return {"ok": True, "error": None}
 
     def get_egg_definitions(self):
         return EASTER_EGGS

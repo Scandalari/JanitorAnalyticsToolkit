@@ -22,9 +22,11 @@ if not "%NEWVER%"=="" (
     )
     echo.
     echo === Bumping version to %NEWVER% ===
-    powershell -NoProfile -Command "(Get-Content -Raw -Encoding UTF8 'app.py') -replace '__version__ = \".*\"','__version__ = \"%NEWVER%\"' | Set-Content -NoNewline -Encoding UTF8 'app.py'"
+    REM PS 5.1's Set-Content -Encoding UTF8 writes a BOM, which Python tolerates
+    REM but ast/linters don't. Use [IO.File]::WriteAllText with a no-BOM encoding.
+    powershell -NoProfile -Command "$utf8=New-Object System.Text.UTF8Encoding $false; $c=(Get-Content -Raw -Encoding UTF8 'app.py') -replace '__version__ = \".*\"','__version__ = \"%NEWVER%\"'; [IO.File]::WriteAllText((Resolve-Path 'app.py'), $c, $utf8)"
     if errorlevel 1 goto :fail_bump
-    powershell -NoProfile -Command "(Get-Content -Raw -Encoding UTF8 'installer.iss') -replace '#define MyAppVersion \".*\"','#define MyAppVersion \"%NEWVER%\"' | Set-Content -NoNewline -Encoding UTF8 'installer.iss'"
+    powershell -NoProfile -Command "$utf8=New-Object System.Text.UTF8Encoding $false; $c=(Get-Content -Raw -Encoding UTF8 'installer.iss') -replace '#define MyAppVersion \".*\"','#define MyAppVersion \"%NEWVER%\"'; [IO.File]::WriteAllText((Resolve-Path 'installer.iss'), $c, $utf8)"
     if errorlevel 1 goto :fail_bump
     echo Bumped app.py and installer.iss.
 )

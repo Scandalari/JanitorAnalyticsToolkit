@@ -722,19 +722,7 @@ async function checkForUpdate(showLoading) {
       return;
     }
     if (result.has_update && result.html_url) {
-      versionStatus.innerHTML = '';
-      const text = document.createElement('span');
-      text.textContent = `New version available: ${result.latest}. `;
-      const link = document.createElement('button');
-      link.type = 'button';
-      link.className = 'version-link';
-      link.textContent = 'Open release page';
-      link.addEventListener('click', () => {
-        window.pywebview.api.open_release_page(result.html_url);
-      });
-      versionStatus.appendChild(text);
-      versionStatus.appendChild(link);
-      versionStatus.className = 'version-status has-update';
+      renderUpdateAvailable(result);
       settingsTabButton.dataset.updateAvailable = 'true';
     } else {
       versionStatus.textContent = "You're up to date.";
@@ -744,6 +732,59 @@ async function checkForUpdate(showLoading) {
   } finally {
     updateCheckInflight = false;
   }
+}
+
+function renderUpdateAvailable(result) {
+  versionStatus.innerHTML = '';
+  versionStatus.className = 'version-status has-update';
+
+  const text = document.createElement('span');
+  text.textContent = `New version available: ${result.latest}. `;
+  versionStatus.appendChild(text);
+
+  if (result.asset_url) {
+    const updateBtn = document.createElement('button');
+    updateBtn.type = 'button';
+    updateBtn.className = 'version-update-button';
+    updateBtn.textContent = 'Update now';
+    updateBtn.addEventListener('click', () => performUpdate(result.asset_url, updateBtn));
+    versionStatus.appendChild(updateBtn);
+    versionStatus.appendChild(document.createTextNode(' '));
+  }
+
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'version-link';
+  link.textContent = result.asset_url ? 'or open release page' : 'Open release page';
+  link.addEventListener('click', () => {
+    window.pywebview.api.open_release_page(result.html_url);
+  });
+  versionStatus.appendChild(link);
+}
+
+async function performUpdate(assetUrl, button) {
+  if (!assetUrl) return;
+  button.disabled = true;
+  versionStatus.innerHTML = '';
+  versionStatus.className = 'version-status has-update';
+  const msg = document.createElement('span');
+  msg.textContent = 'Downloading update...';
+  versionStatus.appendChild(msg);
+
+  let result;
+  try {
+    result = await window.pywebview.api.download_and_install_update(assetUrl);
+  } catch (e) {
+    // Bridge can throw if the app exits mid-call; that's expected on success.
+    return;
+  }
+  if (!result || !result.ok) {
+    versionStatus.textContent = (result && result.error) || 'Update failed.';
+    versionStatus.className = 'version-status error';
+    button.disabled = false;
+    return;
+  }
+  msg.textContent = 'Installing... the app will close in a moment.';
 }
 
 // === Egg-specific implementations ===

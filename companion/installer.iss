@@ -1,9 +1,9 @@
-﻿; Janitor Analytics — Inno Setup script
+; Janitor Analytics — Inno Setup script
 ; Compile by opening this file in the Inno Setup Compiler (or via ISCC.exe).
 ; Output: installer-output\JanitorAnalytics-Setup.exe
 
 #define MyAppName "Janitor Analytics"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "Scandalari"
 #define MyAppExeName "JanitorAnalytics.exe"
 
