@@ -17,7 +17,7 @@ KOFI_URL = "https://ko-fi.com/scandalari"
 
 # Source of truth for app version. installer.iss MyAppVersion must match
 # before each release build.
-__version__ = "1.0.10"
+__version__ = "1.0.11"
 GITHUB_REPO = "Scandalari/JanitorAnalyticsToolkit"
 
 
@@ -42,7 +42,6 @@ DEFAULT_SETTINGS = {
     "theme": "teal",
     "unlocked_eggs": [],
     "enabled_eggs": [],
-    "custom_theme_hex": "#9c8df5",
 }
 
 # Magic word (lowercased) -> egg id. Unlock matching is case-insensitive,
@@ -188,11 +187,6 @@ EASTER_EGGS = [
         "id": "bookworm",
         "name": "Bookworm",
         "description": "Sepia tones, amber accent, and a serif body font. Auto-unlocks on Setting=Library + Personality=Nerd/Geek + Style=Nerdy.",
-    },
-    {
-        "id": "custom_theme",
-        "name": "Custom Theme",
-        "description": "Adds a Custom color option to the theme picker, with a color wheel for picking your own accent. Auto-unlocks if you click between three different built-in themes within five seconds.",
     },
 ]
 

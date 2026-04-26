@@ -106,55 +106,11 @@ const THEMES = {
 
 const PIE_OTHERS_COLOR = '#666666';
 
-// Hex chosen by the Custom Theme egg. Loaded from settings on init; updated
-// live by the color input. Defaults to a soft violet so the swatch isn't
-// black when the egg is first unlocked.
-let customThemeHex = '#9c8df5';
-
 function hsl(h, s, l) {
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
-function hexToHsl(hex) {
-  const m = (hex || '').replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-  if (!m) return { h: 180, s: 80 };
-  const r = parseInt(m[1], 16) / 255;
-  const g = parseInt(m[2], 16) / 255;
-  const b = parseInt(m[3], 16) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  let s = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h *= 60;
-  }
-  return { h: Math.round(h), s: Math.round(s * 100) };
-}
-
 function themeColors(themeName) {
-  // Custom theme: derive hue+sat from the user's chosen hex but keep the
-  // built-in lightness curve so the rendered accent always sits in the
-  // "readable on dark" zone regardless of what the user picks.
-  if (themeName === 'custom') {
-    const { h, s } = hexToHsl(customThemeHex);
-    const t = THEME_DEFAULTS;
-    return {
-      accent: hsl(h, s, t.accent),
-      accentHover: hsl(h, s, t.accentHover),
-      accentPressed: hsl(h, s, t.accentPressed),
-      accentLink: hsl(h, s, t.accentLink),
-      pieColors: t.pie.map((l) => hsl(h, s, l)).concat([PIE_OTHERS_COLOR]),
-      textOnAccent: t.textOnAccent,
-    };
-  }
   const t = { ...THEME_DEFAULTS, ...(THEMES[themeName] || THEMES.teal) };
   return {
     accent: hsl(t.hue, t.sat, t.accent),
@@ -167,7 +123,7 @@ function themeColors(themeName) {
 }
 
 function applyTheme(themeName) {
-  if (themeName !== 'custom' && !THEMES[themeName]) themeName = 'teal';
+  if (!THEMES[themeName]) themeName = 'teal';
   currentTheme = themeName;
   const c = themeColors(themeName);
   const root = document.documentElement;
@@ -670,12 +626,6 @@ async function populateSettingsForm() {
     btn.classList.toggle('active', btn.dataset.themeOption === (settings.theme || 'teal'));
   });
 
-  customThemeHex = settings.custom_theme_hex || '#9c8df5';
-  const colorInput = document.getElementById('theme-custom-hex');
-  if (colorInput) colorInput.value = customThemeHex;
-  const customSwatch = document.getElementById('theme-swatch-custom');
-  if (customSwatch) customSwatch.style.background = customThemeHex;
-
   await renderEggsSection(settings);
 }
 
@@ -1008,7 +958,6 @@ function applyEggs() {
   document.body.classList.toggle('egg-coffee-shop-au', activeEggs.has('coffee_shop_au'));
   document.body.classList.toggle('egg-pure-sunshine', activeEggs.has('pure_sunshine'));
   document.body.classList.toggle('egg-bookworm', activeEggs.has('bookworm'));
-  document.body.classList.toggle('egg-custom-theme', activeEggs.has('custom_theme'));
 
   // Prompt-gen title precedence: "Why even gen?" wins over Mommy wins over default.
   const promptTitle = document.querySelector('.prompt-gen-title');
@@ -1072,42 +1021,6 @@ function applyEggs() {
 function allPromptSlotsLocked() {
   if (!promptConfig) return false;
   return promptConfig.slots.every((s) => promptLocked[s.key]);
-}
-
-// === Custom Theme meta-egg ===
-// Unlocks if the user clicks between three different built-in themes within
-// five seconds. Sliding window of timestamps; 'custom' itself is excluded so
-// you can't loop yourself into re-unlocking after the fact.
-const CUSTOM_THEME_WINDOW_MS = 5000;
-const CUSTOM_THEME_UNIQUE_THRESHOLD = 3;
-let themeClickHistory = [];
-
-function recordThemeClickForUnlock(theme) {
-  if (theme === 'custom') return;
-  const now = Date.now();
-  themeClickHistory.push({ time: now, theme });
-  themeClickHistory = themeClickHistory.filter(
-    (e) => now - e.time < CUSTOM_THEME_WINDOW_MS,
-  );
-  const unique = new Set(themeClickHistory.map((e) => e.theme));
-  if (unique.size >= CUSTOM_THEME_UNIQUE_THRESHOLD) {
-    checkCustomThemeConditions();
-  }
-}
-
-async function checkCustomThemeConditions() {
-  try {
-    const result = await window.pywebview.api.unlock_egg_by_id('custom_theme');
-    if (!result) return;
-    await window.pywebview.api.set_egg_enabled('custom_theme', true);
-    activeEggs.add('custom_theme');
-    showUnlockStatus(`Unlocked: ${result.name}`);
-    applyEggs();
-    const settings = await window.pywebview.api.get_settings();
-    await renderEggsSection(settings);
-  } catch (e) {
-    console.error('Custom Theme unlock failed:', e);
-  }
 }
 
 // === Manic Pixie Dream Girl meta-egg ===
@@ -1781,20 +1694,8 @@ document.querySelectorAll('[data-theme-option]').forEach(btn => {
     const theme = btn.dataset.themeOption;
     applyTheme(theme);
     saveSettings({ theme });
-    recordThemeClickForUnlock(theme);
   });
 });
-
-const customColorInput = document.getElementById('theme-custom-hex');
-const customSwatchEl = document.getElementById('theme-swatch-custom');
-if (customColorInput) {
-  customColorInput.addEventListener('input', (e) => {
-    customThemeHex = e.target.value;
-    if (customSwatchEl) customSwatchEl.style.background = customThemeHex;
-    saveSettings({ custom_theme_hex: customThemeHex });
-    if (currentTheme === 'custom') applyTheme('custom');
-  });
-}
 
 document.getElementById('prompt-roll').addEventListener('click', rollUnlocked);
 document.getElementById('prompt-copy-list').addEventListener('click', copyPromptList);
@@ -1909,7 +1810,6 @@ whenReady(async () => {
   try {
     const settings = await window.pywebview.api.get_settings();
     activeEggs = new Set(settings.enabled_eggs || []);
-    customThemeHex = settings.custom_theme_hex || '#9c8df5';
     applyTheme(settings.theme || 'teal');
     applyEggs();
     if (settings.default_creator) {
